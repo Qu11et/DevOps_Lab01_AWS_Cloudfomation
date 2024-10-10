@@ -1,0 +1,19 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      EnableDnsSupport: "true"
+      EnableDnsHostnames: "true"
+      CidrBlock: !FindInMap
+        - SubnetConfig
+        - VPC
+        - CIDR
+      Tags:
+        - Key: Application
+          Value: !Ref AWS::StackName
+        - Key: Network
+          Value: Public
+        - Key: Name
+          Value: !Ref VPCName
