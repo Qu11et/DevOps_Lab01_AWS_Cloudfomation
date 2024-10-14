@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: 'Creates a VPC with Managed NAT, similar to the VPC Wizard at https://console.aws.amazon.com/vpc/home#wizardFullpagePublicAndPrivate: (extended from VPC_with_PublicIPs_And_DNS.template sample)'
+
+Parameters:
+  VPCName:
+    Description: The name of the VPC being created.
+    Type: String
+    Default: VPC Public and Private with NAT
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.  
+  UserIP:
+    Description: The IP address from which SSH access is allowed
+    Type: String
+    Default: 0.0.0.0/0  # Replace with the specific IP or CIDR block
+    
+Mappings:
+  SubnetConfig:
+    VPC:
+      CIDR: 10.0.0.0/16
+    Public0:
+      CIDR: 10.0.0.0/24
+    Private0:
+      CIDR: 10.0.2.0/24
+
+Resources:
+  PublicInstance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      ImageId: ami-007868005aea67c54 # Replace with a valid AMI ID
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: '0'
+          SubnetId: !Ref PublicSubnet0
+          GroupSet:
+            - !Ref PublicInstanceSecurityGroup
+
+  PrivateInstance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      KeyName: !Ref KeyName
+      ImageId: ami-014d544cfef21b42d # Replace with a valid AMI ID
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          SubnetId: !Ref PrivateSubnet0
+          GroupSet:
+            - !Ref PrivateInstanceSecurityGroup
+
+Outputs:
+  PublicInstance:
+    Description: InstanceId of public subnet 0
+    Value: !Ref PublicInstance
+    Export:
+      Name: !Sub ${AWS::Region}-${AWS::StackName}-PublicInstance
+
+  PrivateInstance:
+    Description: InstanceId of private subnet 0
+    Value: !Ref PrivateInstance
+    Export:
+      Name: !Sub ${AWS::Region}-${AWS::StackName}-PrivateInstance            
+

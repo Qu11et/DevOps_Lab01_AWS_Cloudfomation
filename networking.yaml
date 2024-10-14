@@ -22,12 +22,8 @@ Mappings:
       CIDR: 10.0.0.0/16
     Public0:
       CIDR: 10.0.0.0/24
-    Public1:
-      CIDR: 10.0.1.0/24
     Private0:
       CIDR: 10.0.2.0/24
-    Private1:
-      CIDR: 10.0.3.0/24
 
 Resources:
   VPC:
@@ -73,30 +69,6 @@ Resources:
                 - 0
                 - !GetAZs
 
-  PublicSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 0, !GetAZs ]
-      CidrBlock: !FindInMap
-        - SubnetConfig
-        - Public1
-        - CIDR
-      MapPublicIpOnLaunch: "true"
-      Tags:
-        - Key: Application
-          Value: !Ref AWS::StackName
-        - Key: Network
-          Value: Public
-        - Key: Name
-          Value: !Join
-            - ""
-            - - !Ref VPCName
-              - -public-
-              - !Select
-                - 1
-                - !GetAZs
-
   PrivateSubnet0:
     Type: AWS::EC2::Subnet
     Properties:
@@ -120,29 +92,6 @@ Resources:
                 - 0
                 - !GetAZs
 
-  PrivateSubnet1:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref VPC
-      AvailabilityZone: !Select [ 0, !GetAZs ]
-      CidrBlock: !FindInMap
-        - SubnetConfig
-        - Private1
-        - CIDR
-      Tags:
-        - Key: Application
-          Value: !Ref AWS::StackName
-        - Key: Network
-          Value: Private
-        - Key: Name
-          Value: !Join
-            - ""
-            - - !Ref VPCName
-              - -private-
-              - !Select
-                - 1
-                - !GetAZs
-
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
@@ -163,28 +112,17 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
+  ElasticIP0:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  
   NATGateway0:
     Type: AWS::EC2::NatGateway
     Properties:
       AllocationId: !GetAtt ElasticIP0.AllocationId
       SubnetId: !Ref PublicSubnet0
 
-  NATGateway1:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt ElasticIP1.AllocationId
-      SubnetId: !Ref PublicSubnet1
-
-  ElasticIP0:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-
-  ElasticIP1:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-      
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -208,6 +146,12 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref InternetGateway
 
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet0
+      RouteTableId: !Ref PublicRouteTable
+
   PrivateRouteTable0:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -219,17 +163,6 @@ Resources:
             - - !Ref VPCName
               - -private-route-table-0
 
-  PrivateRouteTable1:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: !Join
-            - ""
-            - - !Ref VPCName
-              - -private-route-table-1
-
   PrivateRouteToInternet0:
     Type: AWS::EC2::Route
     Properties:
@@ -237,12 +170,11 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       NatGatewayId: !Ref NATGateway0
 
-  PrivateRouteToInternet1:
-    Type: AWS::EC2::Route
+  PrivateSubnetRouteTableAssociation0:
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref PrivateRouteTable1
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NATGateway1
+      SubnetId: !Ref PrivateSubnet0
+      RouteTableId: !Ref PrivateRouteTable0
 
   DefaultSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
@@ -253,7 +185,7 @@ Resources:
         - IpProtocol: -1
           FromPort: -1
           ToPort: -1
-          CidrIp: 10.0.0.0/16  # Adjust this CIDR block to match your VPC's CIDR block
+          CidrIp: 0.0.0.0/0  # Adjust this CIDR block to match your VPC's CIDR block
       SecurityGroupEgress:
         - IpProtocol: -1
           FromPort: -1
@@ -270,6 +202,11 @@ Resources:
           FromPort: '22'
           ToPort: '22'
           CidrIp: !Ref UserIP
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0  
 
   PrivateInstanceSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
@@ -281,6 +218,19 @@ Resources:
           FromPort: '22'
           ToPort: '22'
           SourceSecurityGroupId: !Ref PublicInstanceSecurityGroup
+        - IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+          SourceSecurityGroupId: !Ref PublicInstanceSecurityGroup
+        - IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+          SourceSecurityGroupId: !Ref PublicInstanceSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
   
   PublicInstance:
     Type: 'AWS::EC2::Instance'
@@ -306,7 +256,7 @@ Resources:
           SubnetId: !Ref PrivateSubnet0
           GroupSet:
             - !Ref PrivateInstanceSecurityGroup                                
-
+            
 Outputs:
   VPCId:
     Description: VPCId of VPC
@@ -320,26 +270,14 @@ Outputs:
     Export:
       Name: !Sub ${AWS::Region}-${AWS::StackName}-PublicSubnet0
 
-  PublicSubnet1:
-    Description: SubnetId of public subnet 1
-    Value: !Ref PublicSubnet1
-    Export:
-      Name: !Sub ${AWS::Region}-${AWS::StackName}-PublicSubnet1
-
   PrivateSubnet0:
     Description: SubnetId of private subnet 0
     Value: !Ref PrivateSubnet0
     Export:
       Name: !Sub ${AWS::Region}-${AWS::StackName}-PrivateSubnet0
 
-  PrivateSubnet1:
-    Description: SubnetId of private subnet 1
-    Value: !Ref PrivateSubnet1
-    Export:
-      Name: !Sub ${AWS::Region}-${AWS::StackName}-PrivateSubnet1
-
   DefaultSecurityGroup:
     Description: DefaultSecurityGroup Id
-    Value: !GetAtt VPC.DefaultSecurityGroup
+    Value: !Ref DefaultSecurityGroup
     Export:
       Name: !Sub ${AWS::Region}-${AWS::StackName}-DefaultSecurityGroup
