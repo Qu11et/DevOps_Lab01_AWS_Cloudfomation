@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: Creates a VPC
+Description: Creates a NAT Gateway
 
 Parameters:
   VPCName:
@@ -14,8 +14,8 @@ Parameters:
   UserIP:
     Description: The IP address from which SSH access is allowed
     Type: String
-    Default: 0.0.0.0/0  # Replace with the specific IP or CIDR block  
-
+    Default: 0.0.0.0/0  # Replace with the specific IP or CIDR block
+    
 Mappings:
   SubnetConfig:
     VPC:
@@ -26,26 +26,20 @@ Mappings:
       CIDR: 10.0.2.0/24
 
 Resources:
-  VPC:
-    Type: AWS::EC2::VPC
+  NATGateway:
+    Type: AWS::EC2::NatGateway
     Properties:
-      EnableDnsSupport: "true"
-      EnableDnsHostnames: "true"
-      CidrBlock: !FindInMap
-        - SubnetConfig
-        - VPC
-        - CIDR
-      Tags:
-        - Key: Application
-          Value: !Ref AWS::StackName
-        - Key: Network
-          Value: Public
-        - Key: Name
-          Value: !Ref VPCName
+      AllocationId: !GetAtt ElasticIP0.AllocationId
+      SubnetId: !ImportValue PublicSubnetId
+
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
 
 Outputs:
-  VPCId:
-    Description: Id of VPC
-    Value: !Ref VPC
+  NATGatewayId:
+    Description: Id of NAT Gateway
+    Value: !Ref NATGateway
     Export:
-      Name: VPCId
+      Name: NATGatewayId

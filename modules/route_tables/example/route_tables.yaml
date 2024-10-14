@@ -1,10 +1,35 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
+Description: Create a route table
+
+Parameters:
+  VPCName:
+    Description: The name of the VPC being created.
+    Type: String
+    Default: VPC Public and Private with NAT
+  KeyName:
+    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
+    Type: AWS::EC2::KeyPair::KeyName
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.  
+  UserIP:
+    Description: The IP address from which SSH access is allowed
+    Type: String
+    Default: 0.0.0.0/0  # Replace with the specific IP or CIDR block
+    
+Mappings:
+  SubnetConfig:
+    VPC:
+      CIDR: 10.0.0.0/16
+    Public0:
+      CIDR: 10.0.0.0/24
+    Private0:
+      CIDR: 10.0.2.0/24
+
 Resources:
   PublicRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !ImportValue VPCId
       Tags:
         - Key: Application
           Value: !Ref AWS::StackName
@@ -18,44 +43,50 @@ Resources:
 
   PublicRoute:
     Type: AWS::EC2::Route
-    DependsOn: GatewayToInternet
     Properties:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway
+      GatewayId: !ImportValue InternetGatewayId
 
-  PrivateRouteTable0:
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !ImportValue PublicSubnetId
+      RouteTableId: !Ref PublicRouteTable    
+
+  PrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !ImportValue VPCId
       Tags:
         - Key: Name
           Value: !Join
             - ""
             - - !Ref VPCName
-              - -private-route-table-0
+              - -private-route-table
 
-  PrivateRouteTable1:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: !Join
-            - ""
-            - - !Ref VPCName
-              - -private-route-table-1
-
-  PrivateRouteToInternet0:
+  PrivateRouteToInternet:
     Type: AWS::EC2::Route
     Properties:
-      RouteTableId: !Ref PrivateRouteTable0
+      RouteTableId: !Ref PrivateRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NATGateway0
+      NatGatewayId: !ImportValue NATGatewayId
 
-  PrivateRouteToInternet1:
-    Type: AWS::EC2::Route
+  PrivateSubnetRouteTableAssociation0:
+    Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      RouteTableId: !Ref PrivateRouteTable1
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NATGateway1
+      SubnetId: !ImportValue PrivateSubnetId
+      RouteTableId: !Ref PrivateRouteTable
+
+Outputs:
+  PublicRouteTableId:
+    Description: Id of public route table
+    Value: !Ref PublicRouteTable
+    Export:
+      Name: PublicRouteTableId
+
+  PrivateRouteTableId:
+    Description: Id of private route table
+    Value: !Ref PrivateRouteTable
+    Export:
+      Name: PrivateRouteTableId
