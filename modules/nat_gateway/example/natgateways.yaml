@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
-Description: 'Creates a VPC with Managed NAT, similar to the VPC Wizard at https://console.aws.amazon.com/vpc/home#wizardFullpagePublicAndPrivate: (extended from VPC_with_PublicIPs_And_DNS.template sample)'
+Description: Creates a NAT Gateway
 
 Parameters:
   VPCName:
@@ -22,22 +22,24 @@ Mappings:
       CIDR: 10.0.0.0/16
     Public0:
       CIDR: 10.0.0.0/24
-    Public1:
-      CIDR: 10.0.1.0/24
     Private0:
       CIDR: 10.0.2.0/24
-    Private1:
-      CIDR: 10.0.3.0/24
 
 Resources:
-  # Import resources from other files
-  - !Include vpc/vpc.yaml
-  - !Include vpc/subnets.yaml
-  - !Include vpc/gateways.yaml
-  - !Include vpc/route_tables.yaml
-  - !Include vpc/security_groups.yaml
-  - !Include vpc/ec2_instances.yaml
+  NATGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt ElasticIP0.AllocationId
+      SubnetId: !ImportValue PublicSubnetId
+
+  ElasticIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
 
 Outputs:
-  # Import outputs from other files
-  - !Include vpc/outputs.yaml
+  NATGatewayId:
+    Description: Id of NAT Gateway
+    Value: !Ref NATGateway
+    Export:
+      Name: NATGatewayId
