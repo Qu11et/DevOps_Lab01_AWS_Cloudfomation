@@ -1,19 +1,51 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
+Description: Creates Subnets
+
 Resources:
-  VPC:
-    Type: AWS::EC2::VPC
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
     Properties:
-      EnableDnsSupport: "true"
-      EnableDnsHostnames: "true"
+      VpcId: !ImportValue VPCId
+      AvailabilityZone: !Select [ 0, !GetAZs ]
       CidrBlock: !FindInMap
         - SubnetConfig
-        - VPC
+        - Public0
         - CIDR
+      MapPublicIpOnLaunch: "true"
       Tags:
         - Key: Application
           Value: !Ref AWS::StackName
         - Key: Network
           Value: Public
         - Key: Name
-          Value: !Ref VPCName
+          Value: !Join
+            - ""
+            - - !Ref VPCName
+              - -public-
+              - !Select
+                - 0
+                - !GetAZs
+
+  PrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !ImportValue VPCId
+      AvailabilityZone: !Select [ 0, !GetAZs ]
+      CidrBlock: !FindInMap
+        - SubnetConfig
+        - Private0
+        - CIDR
+      Tags:
+        - Key: Application
+          Value: !Ref AWS::StackName
+        - Key: Network
+          Value: Private
+        - Key: Name
+          Value: !Join
+            - ""
+            - - !Ref VPCName
+              - -private-
+              - !Select
+                - 0
+                - !GetAZs
