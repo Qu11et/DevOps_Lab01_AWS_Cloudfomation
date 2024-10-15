@@ -7,23 +7,6 @@ Parameters:
     Description: The name of the VPC being created.
     Type: String
     Default: VPC Public and Private with NAT
-  KeyName:
-    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
-    Type: AWS::EC2::KeyPair::KeyName
-    ConstraintDescription: must be the name of an existing EC2 KeyPair.  
-  UserIP:
-    Description: The IP address from which SSH access is allowed
-    Type: String
-    Default: 0.0.0.0/0  # Replace with the specific IP or CIDR block
-    
-Mappings:
-  SubnetConfig:
-    VPC:
-      CIDR: 10.0.0.0/16
-    Public0:
-      CIDR: 10.0.0.0/24
-    Private0:
-      CIDR: 10.0.2.0/24
 
 Resources:
   PublicRouteTable:
@@ -43,6 +26,7 @@ Resources:
 
   PublicRoute:
     Type: AWS::EC2::Route
+    DependsOn: GatewayToInternet
     Properties:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
@@ -52,7 +36,7 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !ImportValue PublicSubnetId
-      RouteTableId: !Ref PublicRouteTable    
+      RouteTableId: !Ref PublicRouteTable
 
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable

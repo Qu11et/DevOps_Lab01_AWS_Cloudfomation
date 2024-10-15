@@ -7,14 +7,6 @@ Parameters:
     Description: The name of the VPC being created.
     Type: String
     Default: VPC Public and Private with NAT
-  KeyName:
-    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
-    Type: AWS::EC2::KeyPair::KeyName
-    ConstraintDescription: must be the name of an existing EC2 KeyPair.
-  UserIP:
-    Description: The IP address from which SSH access is allowed
-    Type: String
-    Default: 0.0.0.0/0
 
 Mappings:
   SubnetConfig:
